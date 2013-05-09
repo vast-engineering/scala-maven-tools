@@ -4,7 +4,7 @@ This is a set of useful tools for Maven and Scala.
 
 This is a plugin that adds a new packaging type ('scala-jar') to maven with a better default lifecycle. This lifecycle binds net.alchim31.maven:scala-maven-plugin:compile to the 'compile' phase by default while also retaining an invocation of maven-compiler-plugin. Additionally, com.vast:scala-surefire-maven-plugin:test is bound to the 'test' phase. This allows native and seamless use of ScalaTest in your build.
 
-Here's an example of a minimal POM that will compile all scala (and Java) in src/main/(scala|java) and run any JUnit or ScalaTest suites found in src/test/(scala|java)
+Here's an example of a minimal POM that will compile all scala (and Java) in src/main/(scala|java) and run any JUnit or ScalaTest suites found in src/test/(scala|java). The key bit is the inclusion of the scala-lifecycle-plugin with extensions set to true. This tells Maven to use any lifecycles and/or custom packaging definitions it finds in the plugin.
 
 ````xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -37,6 +37,16 @@ Here's an example of a minimal POM that will compile all scala (and Java) in src
             <scope>test</scope>
         </dependency>
     </dependencies>
+	<build>
+		<plugins>
+		    <plugin>
+		        <groupId>com.vast</groupId>
+		        <artifactId>scala-lifecycle-plugin</artifactId>
+		        <version>1.0-SNAPSHOT</version>
+		        <extensions>true</extensions>
+		    </plugin>
+		</plugins>
+	</build>
 </project>
 ````
 
