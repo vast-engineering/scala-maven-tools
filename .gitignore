@@ -1,0 +1,24 @@
+.idea
+*.iws
+*.ipr
+*.iml
+
+.classpath
+.project
+
+target
+
+
+#grails ignores
+maint-server/*Db.properties
+maint-server/*Db.script
+maint-server/.settings
+maint-server/stacktrace.log
+maint-server/*.zip
+maint-server/plugin.xml
+maint-server/*.log
+maint-server/*DB.*
+maint-server/cobertura.ser
+maint-server/out/
+maint-server/web-app/plugins
+maint-server/web-app/WEB-INF/classes
