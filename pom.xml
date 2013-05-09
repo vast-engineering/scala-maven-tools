@@ -39,8 +39,9 @@
     </developers>
 
     <modules>
-        <module>scala-lifecycle-plugin</module>
+        <!-- build surefire-scala first -->
         <module>surefire-scala</module>
+        <module>scala-lifecycle-plugin</module>
     </modules>
 
     <properties>
