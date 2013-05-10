@@ -42,7 +42,7 @@ Here's an example of a minimal POM that will compile all scala (and Java) in src
 		    <plugin>
 		        <groupId>com.vast</groupId>
 		        <artifactId>scala-lifecycle-plugin</artifactId>
-		        <version>1.0-SNAPSHOT</version>
+		        <version>0.1.0-SNAPSHOT</version>
 		        <extensions>true</extensions>
 		    </plugin>
 		</plugins>
