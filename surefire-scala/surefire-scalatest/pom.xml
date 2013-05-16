@@ -36,14 +36,12 @@
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>surefire-api</artifactId>
             <version>${surefire.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.maven.surefire</groupId>
             <artifactId>common-java5</artifactId>
             <version>${surefire.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
