@@ -51,7 +51,8 @@ public class SurefireReporter implements Reporter {
             listener.testSetCompleted(testSetEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal(), getDuration(e.duration())));
         } else if(event instanceof SuiteAborted) {
             SuiteAborted e = (SuiteAborted)event;
-            listener.testError(createEntry(getOrElse(e.suiteClassName(), e.suiteName()), null, e.ordinal(), getDuration(e.duration()), e.message(), orNull(e.throwable())));
+            String name = getOrElse(e.suiteClassName(), e.suiteName());
+            listener.testError(createEntry(name, name, e.ordinal(), getDuration(e.duration()), e.message(), orNull(e.throwable())));
         } else {
             //just let it drop
             //TODO: Log it somehow?
