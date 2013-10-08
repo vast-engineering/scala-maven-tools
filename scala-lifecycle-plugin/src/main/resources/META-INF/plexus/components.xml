@@ -11,27 +11,29 @@
                     <lifecycle>
                         <id>default</id>
                         <phases>
-                            <process-resources>org.apache.maven.plugins:maven-resources-plugin:resources
+                            <process-resources>
+                                net.alchim31.maven:scala-maven-plugin:${scala.maven.plugin.ver}:add-source,
+                                org.apache.maven.plugins:maven-resources-plugin:${maven.resources.plugin.ver}:resources
                             </process-resources>
                             <compile>
-                                net.alchim31.maven:scala-maven-plugin:compile,
-                                org.apache.maven.plugins:maven-compiler-plugin:compile
+                                net.alchim31.maven:scala-maven-plugin:${scala.maven.plugin.ver}:compile,
+                                org.apache.maven.plugins:maven-compiler-plugin:${maven.compiler.plugin.ver}:compile
                             </compile>
                             <process-test-resources>
-                                org.apache.maven.plugins:maven-resources-plugin:testResources
+                                org.apache.maven.plugins:maven-resources-plugin:${maven.resources.plugin.ver}:testResources
                             </process-test-resources>
                             <test-compile>
-                                net.alchim31.maven:scala-maven-plugin:testCompile,
-                                org.apache.maven.plugins:maven-compiler-plugin:testCompile
+                                net.alchim31.maven:scala-maven-plugin:${scala.maven.plugin.ver}:testCompile,
+                                org.apache.maven.plugins:maven-compiler-plugin:${maven.compiler.plugin.ver}:testCompile
                             </test-compile>
                             <test>
-                                com.vast:scala-surefire-maven-plugin:test
+                                com.vast:scala-surefire-maven-plugin:${project.version}:test
                             </test>
                             <package>
-                                org.apache.maven.plugins:maven-jar-plugin:jar
+                                org.apache.maven.plugins:maven-jar-plugin:${maven.jar.plugin.ver}:jar
                             </package>
-                            <install>org.apache.maven.plugins:maven-install-plugin:install</install>
-                            <deploy>org.apache.maven.plugins:maven-deploy-plugin:deploy</deploy>
+                            <install>org.apache.maven.plugins:maven-install-plugin:${maven.install.plugin.ver}:install</install>
+                            <deploy>org.apache.maven.plugins:maven-deploy-plugin:${maven.deploy.plugin.ver}:deploy</deploy>
                         </phases>
                         <!-- END SNIPPET: scala-jar-lifecycle -->
                     </lifecycle>

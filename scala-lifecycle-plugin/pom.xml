@@ -16,9 +16,24 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <maven.resources.plugin.ver>2.6</maven.resources.plugin.ver>
+        <maven.compiler.plugin.ver>3.1</maven.compiler.plugin.ver>
+        <maven.jar.plugin.ver>2.4</maven.jar.plugin.ver>
+        <maven.install.plugin.ver>2.5</maven.install.plugin.ver>
+        <maven.deploy.plugin.ver>2.8</maven.deploy.plugin.ver>
+        <scala.maven.plugin.ver>3.1.6</scala.maven.plugin.ver>
+
     </properties>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
