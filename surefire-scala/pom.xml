@@ -30,7 +30,7 @@
         <scala.version>${scala.major.version}.${scala.minor.version}</scala.version>
 
         <mavenVersion>3.0</mavenVersion>
-        <surefire.version>2.14.1</surefire.version>
+        <surefire.version>2.16</surefire.version>
     </properties>
 
     <dependencyManagement>

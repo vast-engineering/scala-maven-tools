@@ -1,10 +1,12 @@
 package org.apache.maven.plugin.surefire;
 
-import com.google.inject.internal.util.Lists;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.ArtifactUtils;
 import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
 import org.apache.maven.artifact.resolver.ArtifactResolutionException;
+import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
+import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
+import org.apache.maven.artifact.resolver.filter.ExcludesArtifactFilter;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.apache.maven.artifact.versioning.InvalidVersionSpecificationException;
 import org.apache.maven.artifact.versioning.VersionRange;
@@ -13,18 +15,11 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
 import org.apache.maven.surefire.booter.Classpath;
+import org.apache.maven.surefire.util.NestedRuntimeException;
 import org.codehaus.plexus.util.StringUtils;
-import org.sonatype.aether.RepositoryException;
-import org.sonatype.aether.RepositorySystem;
-import org.sonatype.aether.RepositorySystemSession;
-import org.sonatype.aether.collection.CollectRequest;
-import org.sonatype.aether.graph.Exclusion;
-import org.sonatype.aether.repository.RemoteRepository;
-import org.sonatype.aether.resolution.ArtifactRequest;
-import org.sonatype.aether.resolution.ArtifactResult;
-import org.sonatype.aether.util.artifact.DefaultArtifact;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -49,18 +44,6 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
 
     @Parameter(property = "scala.version")
     private String scalaVersion;
-
-    @Component
-    private RepositorySystem repoSystem;
-
-    @Parameter(defaultValue = "${project.remotePluginRepositories}")
-    private List<RemoteRepository> remotePluginRepos;
-
-    @Parameter(defaultValue = "${project.remoteProjectRepositories}")
-    private List<RemoteRepository> remoteRepos;
-
-    @Parameter(defaultValue = "${repositorySystemSession}")
-    private RepositorySystemSession repoSession;
 
     @Override
     protected List<ProviderInfo> createProviders()
@@ -155,33 +138,59 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
         }
     }
 
-    public Classpath resolveProviderClasspath(String provider, String version, Artifact filteredArtifact)
-            throws ArtifactNotFoundException, ArtifactResolutionException {
-        Classpath classPath = ClasspathCache.getCachedClassPath(provider);
-        if (classPath == null) {
-            try {
-                ArtifactRequest request = new ArtifactRequest();
-                request.setArtifact(new DefaultArtifact("com.vast", "surefire-scalatest", "jar", version));
-                request.setRepositories(remoteRepos);
-                ArtifactResult result = repoSystem.resolveArtifact(repoSession, request);
-                List<Exclusion> exclusions =
-                        Lists.newArrayList(new Exclusion(filteredArtifact.getGroupId(), filteredArtifact.getArtifactId(), null, null));
-                org.sonatype.aether.graph.Dependency dep =
-                        new org.sonatype.aether.graph.Dependency(result.getArtifact(), Artifact.SCOPE_TEST, false, exclusions);
-                List<ArtifactResult> artifacts = repoSystem.resolveDependencies(repoSession, new CollectRequest(dep, remoteRepos), null);
-                List<String> files = new ArrayList<String>();
-                for (ArtifactResult artifactResult : artifacts) {
-                    files.add(artifactResult.getArtifact().getFile().getAbsolutePath());
-                }
+    protected Classpath resolveProviderClasspath(String provider, String version, Artifact filteredArtifact )
+            throws ArtifactNotFoundException, ArtifactResolutionException
+    {
+        Classpath classPath = ClasspathCache.getCachedClassPath( provider );
+        if ( classPath == null )
+        {
+            Artifact providerArtifact = artifactFactory.createDependencyArtifact( "com.vast", provider,
+                    VersionRange.createFromVersion(
+                            version ), "jar", null,
+                    Artifact.SCOPE_TEST );
+            ArtifactResolutionResult result = resolveArtifact( filteredArtifact, providerArtifact );
+            List<String> files = new ArrayList<String>();
 
-                classPath = new Classpath(files);
-                ClasspathCache.setCachedClasspath(provider, classPath);
+            for ( Object o : result.getArtifacts() )
+            {
+                Artifact artifact = (Artifact) o;
 
-            } catch (RepositoryException e) {
-                throw new ArtifactResolutionException(e.getMessage(), "org.apache.maven.plugin.surefire", "surefire-scalatest", version, null, null, e);
+                getLog().debug("Adding to scala-surefire test classpath: " + artifact.getFile().getAbsolutePath() + " Scope: "
+                        + artifact.getScope());
+
+                files.add( artifact.getFile().getAbsolutePath() );
             }
+            classPath = new Classpath( files );
+            ClasspathCache.setCachedClasspath( provider, classPath );
         }
         return classPath;
+    }
+
+    protected ArtifactResolutionResult resolveArtifact( Artifact filteredArtifact, Artifact providerArtifact )
+    {
+        ArtifactFilter filter = null;
+        if ( filteredArtifact != null )
+        {
+            filter = new ExcludesArtifactFilter(
+                    Collections.singletonList(filteredArtifact.getGroupId() + ":" + filteredArtifact.getArtifactId()) );
+        }
+
+        Artifact originatingArtifact = getArtifactFactory().createBuildArtifact( "dummy", "dummy", "1.0", "jar" );
+
+        try
+        {
+            return getArtifactResolver().resolveTransitively( Collections.singleton( providerArtifact ),
+                    originatingArtifact, getLocalRepository(),
+                    getRemoteRepositories(), getMetadataSource(), filter );
+        }
+        catch ( ArtifactResolutionException e )
+        {
+            throw new NestedRuntimeException( e );
+        }
+        catch ( ArtifactNotFoundException e )
+        {
+            throw new NestedRuntimeException( e );
+        }
     }
 
 
