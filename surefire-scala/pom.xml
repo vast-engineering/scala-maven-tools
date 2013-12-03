@@ -15,7 +15,8 @@
 
     <modules>
         <module>scala-surefire-maven-plugin</module>
-        <module>surefire-scalatest</module>
+        <module>surefire-scalatest19</module>
+        <module>surefire-scalatest20</module>
     </modules>
 
     <properties>
@@ -26,7 +27,7 @@
 
         <!-- Platform Dependency Versions -->
         <scala.major.version>2.10</scala.major.version>
-        <scala.minor.version>2</scala.minor.version>
+        <scala.minor.version>3</scala.minor.version>
         <scala.version>${scala.major.version}.${scala.minor.version}</scala.version>
 
         <mavenVersion>3.0</mavenVersion>
@@ -40,22 +41,6 @@
                 <artifactId>scala-library</artifactId>
                 <version>${scala.version}</version>
             </dependency>
-
-            <!-- make sure scalatest and junit aren't pulled in - the POM using this plugin should include them -->
-            <dependency>
-                <groupId>org.scalatest</groupId>
-                <artifactId>scalatest_${scala.major.version}</artifactId>
-                <version>1.9.1</version>
-                <scope>provided</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
-                <version>4.11</version>
-                <scope>provided</scope>
-            </dependency>
-
             <dependency>
                 <groupId>org.apache.maven.surefire</groupId>
                 <artifactId>surefire-api</artifactId>

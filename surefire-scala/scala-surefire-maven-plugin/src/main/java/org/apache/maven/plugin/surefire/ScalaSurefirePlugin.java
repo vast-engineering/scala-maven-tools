@@ -9,6 +9,7 @@ import org.apache.maven.artifact.resolver.filter.ArtifactFilter;
 import org.apache.maven.artifact.resolver.filter.ExcludesArtifactFilter;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.apache.maven.artifact.versioning.InvalidVersionSpecificationException;
+import org.apache.maven.artifact.versioning.OverConstrainedVersionException;
 import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -35,7 +36,7 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
     private VersionNumber _scalaVersionN;
 
     /**
-     * Allows you to specify the name of the ScalaTest artifact. If not set, <code>org.testng:testng</code> will be used.
+     * Allows you to specify the name of the ScalaTest artifact. If not set, <code>org.scalatest:scalatest</code> will be used.
      * Note - the appropriate major/minor version combination for the detected version of Scala will be appended to this
      * for dependency resolution purposes.
      */
@@ -49,15 +50,23 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
     protected List<ProviderInfo> createProviders()
             throws MojoFailureException, MojoExecutionException {
         final Artifact junitDepArtifact = getJunitDepArtifact();
+        final Artifact scalaTestArtifact = getScalaTestArtifact();
         ProviderList wellKnownProviders =
                 new ProviderList(new DynamicProviderInfo(null),
-                        new ScalaTestProviderInfo(getScalaTestArtifact()),
+                        new ScalaTest20ProviderInfo(scalaTestArtifact),
+                        new ScalaTest19ProviderInfo(scalaTestArtifact),
                         new TestNgProviderInfo(getTestNgArtifact()),
                         new JUnitCoreProviderInfo(getJunitArtifact(), junitDepArtifact),
                         new JUnit4ProviderInfo(getJunitArtifact(), junitDepArtifact),
                         new JUnit3ProviderInfo());
 
         return wellKnownProviders.resolve(getLog());
+    }
+
+    @Override
+    protected String[] getDefaultIncludes() {
+        //override this to include the idiomatic Scala *Spec naming scheme.
+        return new String[]{"**/*Spec.java", "**/Test*.java", "**/*Test.java", "**/*TestCase.java"};
     }
 
     @Override
@@ -93,7 +102,12 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
         Artifact artifact = getProjectArtifactMap().get(getTestNGArtifactName());
 
         if (artifact != null) {
-            VersionRange range = createVersionRange();
+            VersionRange range;
+            try {
+                range = VersionRange.createFromVersionSpec("[4.7,)");
+            } catch (InvalidVersionSpecificationException e) {
+                throw new RuntimeException(e);
+            }
             if (!range.containsVersion(new DefaultArtifactVersion(artifact.getVersion()))) {
                 throw new MojoExecutionException(
                         "TestNG support requires version 4.7 or above. You have declared version "
@@ -103,28 +117,20 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
         return artifact;
     }
 
-    protected VersionRange createVersionRange() {
-        try {
-            return VersionRange.createFromVersionSpec("[4.7,)");
-        } catch (InvalidVersionSpecificationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-
-    class ScalaTestProviderInfo implements ProviderInfo {
+    class ScalaTest19ProviderInfo implements ProviderInfo {
         private final Artifact scalaTestArtifact;
 
-        ScalaTestProviderInfo(Artifact scalaTestArtifact) {
+        ScalaTest19ProviderInfo(Artifact scalaTestArtifact) {
             this.scalaTestArtifact = scalaTestArtifact;
         }
 
         public String getProviderName() {
-            return "com.vast.surefire.scalatest.ScalaTestProvider";
+            return "com.vast.surefire.scalatest19.ScalaTestProvider";
         }
 
         public boolean isApplicable() {
-            return scalaTestArtifact != null;
+            //compatible with everything less than version 2.0.0 of scalatest
+            return scalaTestArtifact != null && isWithinVersionSpec(scalaTestArtifact, "(,2.0.0)");
         }
 
         public void addProviderProperties() {
@@ -133,63 +139,81 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
         public Classpath getProviderClasspath()
                 throws ArtifactResolutionException, ArtifactNotFoundException {
             Artifact thisArtifact = getPluginArtifactMap().get("com.vast:scala-surefire-maven-plugin");
-            return resolveProviderClasspath("surefire-scalatest", thisArtifact.getBaseVersion(),
+            return resolveProviderClasspath("surefire-scalatest19", thisArtifact.getBaseVersion(),
                     scalaTestArtifact);
         }
     }
 
-    protected Classpath resolveProviderClasspath(String provider, String version, Artifact filteredArtifact )
-            throws ArtifactNotFoundException, ArtifactResolutionException
-    {
-        Classpath classPath = ClasspathCache.getCachedClassPath( provider );
-        if ( classPath == null )
-        {
-            Artifact providerArtifact = artifactFactory.createDependencyArtifact( "com.vast", provider,
-                    VersionRange.createFromVersion(
-                            version ), "jar", null,
-                    Artifact.SCOPE_TEST );
-            ArtifactResolutionResult result = resolveArtifact( filteredArtifact, providerArtifact );
+    class ScalaTest20ProviderInfo implements ProviderInfo {
+        private final Artifact scalaTestArtifact;
+
+        ScalaTest20ProviderInfo(Artifact scalaTestArtifact) {
+            this.scalaTestArtifact = scalaTestArtifact;
+        }
+
+        public String getProviderName() {
+            return "com.vast.surefire.scalatest20.ScalaTestProvider";
+        }
+
+        public boolean isApplicable() {
+            //compatible with everything greater than or equal version 2.0.0 of scalatest
+            boolean result = scalaTestArtifact != null && isWithinVersionSpec(scalaTestArtifact, "[2.0.0,)");
+            getLog().debug("ScalaTest20Provider resolved to " + result);
+            return result;
+        }
+
+        public void addProviderProperties() {
+        }
+
+        public Classpath getProviderClasspath()
+                throws ArtifactResolutionException, ArtifactNotFoundException {
+            Artifact thisArtifact = getPluginArtifactMap().get("com.vast:scala-surefire-maven-plugin");
+            return resolveProviderClasspath("surefire-scalatest20", thisArtifact.getBaseVersion(),
+                    scalaTestArtifact);
+        }
+    }
+
+    protected Classpath resolveProviderClasspath(String provider, String version, Artifact filteredArtifact)
+            throws ArtifactNotFoundException, ArtifactResolutionException {
+        Classpath classPath = ClasspathCache.getCachedClassPath(provider);
+        if (classPath == null) {
+            Artifact providerArtifact = artifactFactory.createDependencyArtifact("com.vast", provider,
+                    VersionRange.createFromVersion(version), "jar", null, Artifact.SCOPE_TEST);
+
+            ArtifactResolutionResult result = resolveArtifact(filteredArtifact, providerArtifact);
             List<String> files = new ArrayList<String>();
 
-            for ( Object o : result.getArtifacts() )
-            {
+            for (Object o : result.getArtifacts()) {
                 Artifact artifact = (Artifact) o;
 
                 getLog().debug("Adding to scala-surefire test classpath: " + artifact.getFile().getAbsolutePath() + " Scope: "
                         + artifact.getScope());
 
-                files.add( artifact.getFile().getAbsolutePath() );
+                files.add(artifact.getFile().getAbsolutePath());
             }
-            classPath = new Classpath( files );
-            ClasspathCache.setCachedClasspath( provider, classPath );
+            classPath = new Classpath(files);
+            ClasspathCache.setCachedClasspath(provider, classPath);
         }
         return classPath;
     }
 
-    protected ArtifactResolutionResult resolveArtifact( Artifact filteredArtifact, Artifact providerArtifact )
-    {
+    protected ArtifactResolutionResult resolveArtifact(Artifact filteredArtifact, Artifact providerArtifact) {
         ArtifactFilter filter = null;
-        if ( filteredArtifact != null )
-        {
+        if (filteredArtifact != null) {
             filter = new ExcludesArtifactFilter(
-                    Collections.singletonList(filteredArtifact.getGroupId() + ":" + filteredArtifact.getArtifactId()) );
+                    Collections.singletonList(filteredArtifact.getGroupId() + ":" + filteredArtifact.getArtifactId()));
         }
 
-        Artifact originatingArtifact = getArtifactFactory().createBuildArtifact( "dummy", "dummy", "1.0", "jar" );
+        Artifact originatingArtifact = getArtifactFactory().createBuildArtifact("dummy", "dummy", "1.0", "jar");
 
-        try
-        {
-            return getArtifactResolver().resolveTransitively( Collections.singleton( providerArtifact ),
+        try {
+            return getArtifactResolver().resolveTransitively(Collections.singleton(providerArtifact),
                     originatingArtifact, getLocalRepository(),
-                    getRemoteRepositories(), getMetadataSource(), filter );
-        }
-        catch ( ArtifactResolutionException e )
-        {
-            throw new NestedRuntimeException( e );
-        }
-        catch ( ArtifactNotFoundException e )
-        {
-            throw new NestedRuntimeException( e );
+                    getRemoteRepositories(), getMetadataSource(), filter);
+        } catch (ArtifactResolutionException e) {
+            throw new NestedRuntimeException(e);
+        } catch (ArtifactNotFoundException e) {
+            throw new NestedRuntimeException(e);
         }
     }
 
@@ -257,7 +281,26 @@ public class ScalaSurefirePlugin extends SurefirePlugin {
     }
 
     protected List<Dependency> getDependencies() {
-        return project.getCompileDependencies();
+        return (List<Dependency>) project.getCompileDependencies();
     }
+
+    protected static boolean isWithinVersionSpec(Artifact artifact, String versionSpec) {
+        if (artifact == null) {
+            return false;
+        }
+        try {
+            VersionRange range = VersionRange.createFromVersionSpec(versionSpec);
+            try {
+                return range.containsVersion(artifact.getSelectedVersion());
+            } catch (NullPointerException e) {
+                return range.containsVersion(new DefaultArtifactVersion(artifact.getBaseVersion()));
+            }
+        } catch (InvalidVersionSpecificationException e) {
+            throw new RuntimeException("Bug in plugin. Please report with stacktrace");
+        } catch (OverConstrainedVersionException e) {
+            throw new RuntimeException("Bug in plugin. Please report with stacktrace");
+        }
+    }
+
 
 }
