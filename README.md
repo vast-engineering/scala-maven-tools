@@ -10,7 +10,7 @@ This project's releases are deployed to the maven central repository, so to use 
 <plugin>
     <groupId>com.vast</groupId>
     <artifactId>scala-lifecycle-plugin</artifactId>
-    <version>0.1.0</version>
+    <version>3.2.0</version>
     <extensions>true</extensions>
 </plugin>
 ````
@@ -38,13 +38,13 @@ Here's an example of a minimal POM that will compile all scala (and Java) in src
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>2.10.0</version>
+            <version>2.10.3</version>
         </dependency>
 
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_2.10</artifactId>
-            <version>1.9.1</version>
+            <version>2.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -53,7 +53,7 @@ Here's an example of a minimal POM that will compile all scala (and Java) in src
 		    <plugin>
 		        <groupId>com.vast</groupId>
 		        <artifactId>scala-lifecycle-plugin</artifactId>
-		        <version>0.1.0</version>
+		        <version>3.2.0</version>
 		        <extensions>true</extensions>
 		    </plugin>
 		</plugins>
@@ -67,4 +67,4 @@ Here's an example of a minimal POM that will compile all scala (and Java) in src
 
 This is a subclass of the maven-surefire-plugin that adds ScalaTest to the default list of 'known' test providers. If ScalaTest is detected in your test classpath, this provider will be used by default. As a bonus, this provider will also run any JUnit tests it finds in your build. The version of scala and ScalaTest is detected automatically from your build, assuming that there's a dependency to 'scala-library' somewhere in your test classpath.
 
-The plugin is built with the intention of adding more Scala test providers to it eventually - right now, there is only support for ScalaTest, but adding Specs would not be a difficult exercise.
+The plugin is built with the intention of adding more Scala test providers to it eventually - right now, there is only support for ScalaTest (both 1.9.x and 2.0.x), but adding Specs would not be a difficult exercise.
