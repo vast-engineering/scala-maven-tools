@@ -11,6 +11,7 @@ import org.scalatest.junit.JUnitWrapperSuite;
 import scala.Option;
 import scala.collection.JavaConversions;
 import scala.collection.immutable.*;
+import scala.collection.immutable.IndexedSeq$;
 import scala.collection.immutable.Map;
 import scala.collection.immutable.Map$;
 import scala.collection.immutable.Set;
@@ -19,6 +20,7 @@ import scala.collection.mutable.*;
 import scala.collection.mutable.HashSet;
 
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -79,45 +81,19 @@ public class SurefireRunner {
         DispatchReporter reporter = new DispatchReporter(reporters, System.err, false, 60000, 60000);
 
         try {
-            List<? extends Suite> scalaTestSuites;
-            try {
-                scalaTestSuites = Lists.transform(scalaTests, new Function<String, Suite>() {
-                    @Override
-                    public Suite apply(String clazzName) {
-                        try {
-                            Class<?> clazz = loader.loadClass(clazzName);
-                            WrapWith wrapWith = clazz.getAnnotation(WrapWith.class);
-                            if (wrapWith == null) {
-                                return (Suite) clazz.newInstance();
-                            } else {
-                                Class<? extends Suite> suiteClazz = wrapWith.value();
-                                Constructor ctor = null;
-                                for (Constructor c : suiteClazz.getDeclaredConstructors()) {
-                                    Class[] types = c.getParameterTypes();
-                                    if (types.length == 1 && types[0] == Class.class) {
-                                        ctor = c;
-                                    }
-                                }
-                                if (ctor == null) {
-                                    throw new RuntimeException("The class " + suiteClazz.getName() + " must have a public constructor with one argument of type Class to use the WrapWith annotation.");
-                                }
-                                return (Suite) ctor.newInstance(clazz);
-                            }
-                        } catch (Exception e) {
-                            throw new WrappedCheckedException(e);
-                        }
-                    }
-                });
-            } catch(WrappedCheckedException e) {
-                throw e.getWrapped();
+
+            List<Suite> scalaTestSuites = new ArrayList<Suite>(scalaTests.size());
+            for(String scalaTest : scalaTests) {
+                Suite suite = createSuite(scalaTest, loader, tracker, startTime, reporter);
+                if(suite != null) {
+                    scalaTestSuites.add(suite);
+                }
             }
 
-            List<JUnitWrapperSuite> junitSuites = Lists.transform(junitTests, new Function<String, JUnitWrapperSuite>() {
-                @Override
-                public JUnitWrapperSuite apply(String input) {
-                    return new JUnitWrapperSuite(input, loader);
-                }
-            });
+            List<Suite> junitSuites = new ArrayList<Suite>(junitTests.size());
+            for(String junitTest : junitTests) {
+                junitSuites.add(new JUnitWrapperSuite(junitTest, loader));
+            }
 
             ImmutableList<? extends Suite> suites = new ImmutableList.Builder<Suite>().addAll(scalaTestSuites).addAll(junitSuites).build();
             int expectedCount = 0;
@@ -152,42 +128,54 @@ public class SurefireRunner {
                     execSvc.shutdown();
                 }
             } else {
-                for (Suite suite : suites) {
+                for(Suite suite : suites) {
                     ScalaTestStatefulStatus status = new ScalaTestStatefulStatus();
                     SuiteRunner suiteRunner = new SuiteRunner(suite, testArgs, status);
                     suiteRunner.run();
                 }
             }
-
             Long duration = System.currentTimeMillis() - startTime;
             reporter.apply(new RunCompleted(tracker.nextOrdinal(), Option.apply((Object)duration),
                     Option.apply((Summary)null), Option.apply((Formatter)null), Option.apply((Location)null),
                     Option.<Object>apply(null), Thread.currentThread().getName(), new Date().getTime()));
-        } catch(InstantiationException e) {
-            reporter.apply(new RunAborted(tracker.nextOrdinal(), org.scalatest.Resources.apply("cannotInstantiateSuite",
-                    JavaConversions.asScalaBuffer(Lists.newArrayList((Object)e.getMessage()))),
-                    Option.apply((Throwable) e), Option.apply((Object) (System.currentTimeMillis() - startTime)),
-                    Option.apply((Summary)null), Option.apply((Formatter)null), Option.apply((Location)null),
-                    Option.apply(null), Thread.currentThread().getName(), new Date().getTime()));
-        } catch(IllegalAccessException e) {
-            reporter.apply(new RunAborted(tracker.nextOrdinal(), org.scalatest.Resources.apply("cannotInstantiateSuite",
-                    JavaConversions.asScalaBuffer(Lists.newArrayList((Object)e.getMessage()))),
-                    Option.apply((Throwable) e), Option.apply((Object) (System.currentTimeMillis() - startTime)),
-                    Option.apply((Summary)null), Option.apply((Formatter)null), Option.apply((Location)null),
-                    Option.apply(null), Thread.currentThread().getName(), new Date().getTime()));
-        } catch(NoClassDefFoundError e) {
-            reporter.apply(new RunAborted(tracker.nextOrdinal(),
-                    org.scalatest.Resources.apply("cannotLoadClass", JavaConversions.asScalaBuffer(Lists.newArrayList((Object)e.getMessage()))),
-                    Option.apply((Throwable) e), Option.apply((Object) (System.currentTimeMillis() - startTime)),
-                    Option.apply((Summary)null), Option.apply((Formatter)null), Option.apply((Location)null),
-                    Option.apply(null), Thread.currentThread().getName(), new Date().getTime()));
-        } catch(Throwable e) {
-            reporter.apply(new RunAborted(tracker.nextOrdinal(), org.scalatest.Resources.bigProblems(e),
-                    Option.apply(e), Option.apply((Object) (System.currentTimeMillis() - startTime)),
-                    Option.apply((Summary)null), Option.apply((Formatter)null), Option.apply((Location)null),
-                    Option.apply(null), Thread.currentThread().getName(), new Date().getTime()));
         } finally {
             reporter.dispatchDisposeAndWaitUntilDone();
         }
     }
+
+    private static Suite createSuite(String testName, ClassLoader loader, Tracker tracker, long startTime, DispatchReporter reporter) {
+        try {
+            Class<?> clazz = loader.loadClass(testName);
+            WrapWith wrapWith = clazz.getAnnotation(WrapWith.class);
+            if (wrapWith == null) {
+                return (Suite)clazz.newInstance();
+            } else {
+                Class<? extends Suite> suiteClazz = wrapWith.value();
+                Constructor ctor = null;
+                for (Constructor c : suiteClazz.getDeclaredConstructors()) {
+                    Class[] types = c.getParameterTypes();
+                    if (types.length == 1 && types[0] == Class.class) {
+                        ctor = c;
+                    }
+                }
+                if (ctor == null) {
+                    throw new RuntimeException("The class " + suiteClazz.getName() + " must have a public constructor with one argument of type Class to use the WrapWith annotation.");
+                }
+                return (Suite)ctor.newInstance(clazz);
+            }
+        } catch(Exception e) {
+            //report a TestCancelled exception since Surefire expects errors on test construction to happen
+            //when the test is scheduled to run, not after initialization.
+            reporter.apply(new TestCanceled(tracker.nextOrdinal(), "Error instantiating test", testName, testName,
+                    Option.apply((String)testName), testName, testName,
+                    JavaConversions.asScalaBuffer(new ArrayList<RecordableEvent>()).toIndexedSeq(),
+                    Option.apply((Throwable) e), Option.apply((Object) (System.currentTimeMillis() - startTime)),
+                    Option.apply((Formatter)null), Option.apply((Location)null), Option.apply((String)null),
+                    Option.apply((Object)null), Thread.currentThread().getName(), new Date().getTime()));
+        }
+        return null;
+    }
+
+
+
 }

@@ -23,7 +23,7 @@ public class MethodAnnotationScanner implements ScannerFilter {
             return false;
         }
         boolean annotationFound = false;
-        for(Method m : testClass.getDeclaredMethods()) {
+        for(Method m : testClass.getMethods()) {
             for(Annotation a : m.getDeclaredAnnotations()) {
                 if(a.annotationType().equals(annotationClass)) {
                     annotationFound = true;

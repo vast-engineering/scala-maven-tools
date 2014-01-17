@@ -38,6 +38,10 @@ public class SurefireReporter implements Reporter {
             TestFailed e = (TestFailed)event;
             Integer duration = getDuration(e.duration());
             listener.testFailed(createEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal(), duration, e.message(), orNull(e.throwable())));
+        } else if(event instanceof TestCanceled) {
+            TestCanceled e = (TestCanceled)event;
+            String name = getOrElse(e.suiteClassName(), e.suiteName());
+            listener.testError(createEntry(name, name, e.ordinal(), getDuration(e.duration()), e.message(), orNull(e.throwable())));
         } else if(event instanceof TestIgnored) {
             TestIgnored e = (TestIgnored)event;
             listener.testSkipped(testSkipped(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal()));

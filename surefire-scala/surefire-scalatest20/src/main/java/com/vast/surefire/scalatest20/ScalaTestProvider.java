@@ -24,6 +24,7 @@ public class ScalaTestProvider extends AbstractProvider {
     private final ProviderParameters providerParameters;
     private final ParametersParser parametersParser;
     private final Class<org.junit.Test> junitAnnotation;
+    private final Class<org.scalatest.Suite> suiteClass;
 
     public ScalaTestProvider(ProviderParameters providerParameters) {
         this.providerParameters = providerParameters;
@@ -36,6 +37,14 @@ public class ScalaTestProvider extends AbstractProvider {
             annoClass = null;
         }
         junitAnnotation = annoClass;
+
+        Class stClass;
+        try {
+            stClass = providerParameters.getTestClassLoader().loadClass("org.scalatest.Suite");
+        } catch(ClassNotFoundException e) {
+            throw new RuntimeException("Cannot find scalatest Suite class.", e);
+        }
+        suiteClass = stClass;
     }
 
     @Override
@@ -51,7 +60,7 @@ public class ScalaTestProvider extends AbstractProvider {
     }
 
     private List<String> getScalaTests() {
-        return scanClasspath(new ScalaTestScanner());
+        return scanClasspath(new ScalaTestScanner(suiteClass));
     }
 
     private List<String> getJunitTests() {

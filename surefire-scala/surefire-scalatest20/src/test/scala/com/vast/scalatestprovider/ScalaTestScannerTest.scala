@@ -26,7 +26,7 @@ class ScalaTestScannerTest extends WordSpec with Matchers {
         classOf[DummyFreeSpec],
         classOf[DummyFeatureSpec]
       )
-      val scanner = new ScalaTestScanner
+      val scanner = new ScalaTestScanner(classOf[Suite])
       specClasses.foreach { clazz =>
         scanner.accept(clazz) should be (true)
       }
@@ -46,7 +46,7 @@ class ScalaTestScannerTest extends WordSpec with Matchers {
         classOf[Int],
         classOf[String]
       )
-      val scanner = new ScalaTestScanner
+      val scanner = new ScalaTestScanner(classOf[Suite])
       classes.foreach { clazz =>
         scanner.accept(clazz) should be (false)
       }
