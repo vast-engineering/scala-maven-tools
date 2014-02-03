@@ -29,35 +29,73 @@ public class SurefireReporter implements Reporter {
     public void apply(Event event) {
         if(event instanceof TestStarting) {
             TestStarting e = (TestStarting)event;
-            listener.testStarting(createEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal(), null, null, null));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = new SimpleReportEntry( name, e.testName() );
+            listener.testStarting(report);
         } else if(event instanceof TestSucceeded) {
             TestSucceeded e = (TestSucceeded)event;
-            Integer duration = getDuration(e.duration());
-            listener.testSucceeded(createEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal(), duration, null, null));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = new SimpleReportEntry( name, e.testName() );
+            listener.testSucceeded( report );
         } else if(event instanceof TestFailed) {
             TestFailed e = (TestFailed)event;
-            Integer duration = getDuration(e.duration());
-            listener.testFailed(createEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal(), duration, e.message(), orNull(e.throwable())));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            //ReportEntry report = new SimpleReportEntry( name, e.testName() );
+
+            ReportEntry report = SimpleReportEntry.withException(name, e.testName(),
+                    new SimpleStackTraceWriter(orNull(e.suiteClassName()),
+                            e.suiteName(),
+                            e.testName(),
+                            orNull(e.throwable() ) ) );
+            listener.testFailed( report );
+//
+//
+//
+//            Integer duration = getDuration(e.duration());
+////            listener.testFailed(createEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal(), duration, e.message(), orNull(e.throwable())));
+//            String suiteName = e.suiteName();
+//            String testName = e.testName();
+//            Throwable throwable = orNull(e.throwable());
+//            ReportEntry entry = createEntry(suiteName, testName, e.ordinal(), duration, e.message(), throwable);
+//            listener.testFailed(entry);
         } else if(event instanceof TestCanceled) {
             TestCanceled e = (TestCanceled)event;
-            String name = getOrElse(e.suiteClassName(), e.suiteName());
-            listener.testError(createEntry(name, name, e.ordinal(), getDuration(e.duration()), e.message(), orNull(e.throwable())));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = SimpleReportEntry.withException(name, e.testName(),
+                    new SimpleStackTraceWriter(orNull(e.suiteClassName()),
+                            e.suiteName(),
+                            e.testName(),
+                            orNull(e.throwable() ) ) );
+            listener.testError(report);
         } else if(event instanceof TestIgnored) {
             TestIgnored e = (TestIgnored)event;
-            listener.testSkipped(testSkipped(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal()));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = new SimpleReportEntry( name, e.testName() );
+            listener.testSkipped( report );
         } else if(event instanceof TestPending) {
             TestPending e = (TestPending)event;
-            listener.testSkipped(testSkipped(getOrElse(e.suiteClassName(), e.suiteName()), e.testName(), e.ordinal()));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = new SimpleReportEntry( name, e.testName() );
+            listener.testSkipped( report );
         } else if(event instanceof SuiteStarting) {
             SuiteStarting e = (SuiteStarting)event;
-            listener.testSetStarting(testSetEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal(), null));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = new SimpleReportEntry( name, name );
+            listener.testSetStarting(report);
         } else if(event instanceof SuiteCompleted) {
             SuiteCompleted e = (SuiteCompleted)event;
-            listener.testSetCompleted(testSetEntry(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal(), getDuration(e.duration())));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = new SimpleReportEntry( name, name );
+            listener.testSetCompleted(report);
         } else if(event instanceof SuiteAborted) {
             SuiteAborted e = (SuiteAborted)event;
-            String name = getOrElse(e.suiteClassName(), e.suiteName());
-            listener.testError(createEntry(name, name, e.ordinal(), getDuration(e.duration()), e.message(), orNull(e.throwable())));
+            String name = mangleJUnitSourceName(getOrElse(e.suiteClassName(), e.suiteName()), e.ordinal());
+            ReportEntry report = SimpleReportEntry.withException(name, e.suiteName(),
+                    new SimpleStackTraceWriter(orNull(e.suiteClassName()),
+                            e.suiteName(),
+                            e.suiteName(),
+                            orNull(e.throwable() ) ) );
+            listener.testError(report);
         } else {
             //just let it drop
             //TODO: Log it somehow?
