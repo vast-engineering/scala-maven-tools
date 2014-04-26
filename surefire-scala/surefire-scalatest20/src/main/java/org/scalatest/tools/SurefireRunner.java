@@ -83,10 +83,20 @@ public class SurefireRunner {
         try {
 
             List<Suite> scalaTestSuites = new ArrayList<Suite>(scalaTests.size());
+            List<SuiteAborted> abortedSuites = new ArrayList<SuiteAborted>();
             for(String scalaTest : scalaTests) {
-                Suite suite = createSuite(scalaTest, loader, tracker, startTime, reporter);
-                if(suite != null) {
-                    scalaTestSuites.add(suite);
+                try {
+                    Suite suite = createSuite(scalaTest, loader, tracker, startTime, reporter);
+                    if (suite != null) {
+                        scalaTestSuites.add(suite);
+                    }
+                } catch(Exception e) {
+                    SuiteAborted aborted = new SuiteAborted(tracker.nextOrdinal(), "Error instantiating test", scalaTest, scalaTest,
+                            Option.apply((String) scalaTest),
+                            Option.apply((Throwable) e), Option.apply(null),
+                            Option.apply((Formatter) null), Option.apply((Location) null), Option.apply((String) null),
+                            Option.apply((Object) null), Thread.currentThread().getName(), System.currentTimeMillis());
+                    abortedSuites.add(aborted);
                 }
             }
 
@@ -102,7 +112,23 @@ public class SurefireRunner {
             }
 
             reporter.apply(new RunStarting(tracker.nextOrdinal(), (java.lang.Integer)expectedCount, configMap, Option.<Formatter>apply(null), Option.<Location>apply(null), Option.apply(null),
-                    Thread.currentThread().getName(), new Date().getTime()));
+                    Thread.currentThread().getName(), System.currentTimeMillis()));
+
+            //mark all the tests that failed to instantiate
+            for(SuiteAborted aborted : abortedSuites) {
+                Long currentTime = System.currentTimeMillis();
+                reporter.apply(new SuiteStarting(tracker.nextOrdinal(), aborted.suiteName(), aborted.suiteId(), aborted.suiteClassName(),
+                        Option.apply((Formatter) null), Option.apply((Location) null), Option.apply((String) null),
+                        Option.apply((Object) null), Thread.currentThread().getName(), System.currentTimeMillis()));
+                reporter.apply(new TestStarting(tracker.nextOrdinal(), aborted.suiteName(), aborted.suiteId(), aborted.suiteClassName(), "init", "init",
+                        Option.apply((Formatter) null), Option.apply((Location) null), Option.apply((String) null),
+                        Option.apply((Object) null), Thread.currentThread().getName(), System.currentTimeMillis()));
+                reporter.apply(aborted);
+                reporter.apply(new SuiteCompleted(tracker.nextOrdinal(), aborted.suiteName(), aborted.suiteId(), aborted.suiteClassName(),
+                        Option.apply((Object)(System.currentTimeMillis() - currentTime)),
+                                Option.apply((Formatter) null), Option.apply((Location) null), Option.apply((String) null),
+                                Option.apply((Object) null), Thread.currentThread().getName(), System.currentTimeMillis()));
+            }
 
             Args testArgs = new Args(reporter, NULL_STOPPER, filter, configMap, Option.apply((Distributor)null), tracker, Set$.MODULE$.<String>empty(),
                     false, Option.apply((DistributedTestSorter)null), Option.apply((DistributedSuiteSorter)null));
@@ -137,45 +163,30 @@ public class SurefireRunner {
             Long duration = System.currentTimeMillis() - startTime;
             reporter.apply(new RunCompleted(tracker.nextOrdinal(), Option.apply((Object)duration),
                     Option.apply((Summary)null), Option.apply((Formatter)null), Option.apply((Location)null),
-                    Option.<Object>apply(null), Thread.currentThread().getName(), new Date().getTime()));
+                    Option.<Object>apply(null), Thread.currentThread().getName(), System.currentTimeMillis()));
         } finally {
             reporter.dispatchDisposeAndWaitUntilDone();
         }
     }
 
-    private static Suite createSuite(String testName, ClassLoader loader, Tracker tracker, long startTime, DispatchReporter reporter) {
-        try {
-            Class<?> clazz = loader.loadClass(testName);
-            WrapWith wrapWith = clazz.getAnnotation(WrapWith.class);
-            if (wrapWith == null) {
-                return (Suite)clazz.newInstance();
-            } else {
-                Class<? extends Suite> suiteClazz = wrapWith.value();
-                Constructor ctor = null;
-                for (Constructor c : suiteClazz.getDeclaredConstructors()) {
-                    Class[] types = c.getParameterTypes();
-                    if (types.length == 1 && types[0] == Class.class) {
-                        ctor = c;
-                    }
+    private static Suite createSuite(String testName, ClassLoader loader, Tracker tracker, long startTime, DispatchReporter reporter) throws Exception {
+        Class<?> clazz = loader.loadClass(testName);
+        WrapWith wrapWith = clazz.getAnnotation(WrapWith.class);
+        if (wrapWith == null) {
+            return (Suite)clazz.newInstance();
+        } else {
+            Class<? extends Suite> suiteClazz = wrapWith.value();
+            Constructor ctor = null;
+            for (Constructor c : suiteClazz.getDeclaredConstructors()) {
+                Class[] types = c.getParameterTypes();
+                if (types.length == 1 && types[0] == Class.class) {
+                    ctor = c;
                 }
-                if (ctor == null) {
-                    throw new RuntimeException("The class " + suiteClazz.getName() + " must have a public constructor with one argument of type Class to use the WrapWith annotation.");
-                }
-                return (Suite)ctor.newInstance(clazz);
             }
-        } catch(Exception e) {
-            //report a TestCancelled exception since Surefire expects errors on test construction to happen
-            //when the test is scheduled to run, not after initialization.
-            reporter.apply(new TestCanceled(tracker.nextOrdinal(), "Error instantiating test", testName, testName,
-                    Option.apply((String)testName), testName, testName,
-                    JavaConversions.asScalaBuffer(new ArrayList<RecordableEvent>()).toIndexedSeq(),
-                    Option.apply((Throwable) e), Option.apply((Object) (System.currentTimeMillis() - startTime)),
-                    Option.apply((Formatter)null), Option.apply((Location)null), Option.apply((String)null),
-                    Option.apply((Object)null), Thread.currentThread().getName(), new Date().getTime()));
+            if (ctor == null) {
+                throw new RuntimeException("The class " + suiteClazz.getName() + " must have a public constructor with one argument of type Class to use the WrapWith annotation.");
+            }
+            return (Suite)ctor.newInstance(clazz);
         }
-        return null;
     }
-
-
-
 }
